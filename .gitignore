@@ -15,3 +15,4 @@ frontend/.env*.local
 # Divers
 .DS_Store
 *.log
+.vercel/
