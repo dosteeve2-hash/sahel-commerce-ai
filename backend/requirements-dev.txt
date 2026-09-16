@@ -1,0 +1,5 @@
+# Dépendances de test, séparées de requirements.txt : le déploiement
+# (render.yaml) n'installe que le strict nécessaire à l'exécution.
+-r requirements.txt
+pytest==8.3.4
+httpx==0.28.1
