@@ -37,6 +37,20 @@ export default function Home() {
     refresh();
   }, [refresh]);
 
+  // Le correctif de lib/reseau.js permet à l'application de REVENIR en ligne.
+  // Encore faut-il que quelque chose le déclenche : `refresh` ne tournait qu'au
+  // montage, si bien que la bannière restait affichée pour toute la session même
+  // une fois le réseau rétabli.
+  //
+  // On écoute l'événement du système plutôt que d'interroger le réseau en
+  // boucle : sur un forfait payé au mégaoctet, un sondage périodique se paie.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const auRetour = () => refresh();
+    window.addEventListener("online", auRetour);
+    return () => window.removeEventListener("online", auRetour);
+  }, [refresh]);
+
   return (
     <main className="container">
       <div className="header">
@@ -45,9 +59,9 @@ export default function Home() {
       </div>
 
       {demo && (
-        <p className="banner">
-          Mode démo navigateur — les données restent sur cet appareil. Lance le
-          backend pour l'agent IA complet.
+        <p className="banner" role="status">
+          Hors ligne — les données restent sur cet appareil. La connexion au
+          serveur est retentée automatiquement.
         </p>
       )}
 
