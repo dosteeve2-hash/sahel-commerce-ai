@@ -2,13 +2,21 @@
 // sinon mode démo navigateur (lib/demo.js, données locales).
 
 import * as demo from "./demo";
+import { creerEtatReseau } from "./reseau";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-let demoMode = false;
+const reseau = creerEtatReseau();
 
+// Le système sait avant nous que la connexion est revenue : on en profite pour
+// retenter sans attendre la fin du délai.
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => reseau.connexionAnnoncee());
+}
+
+/** L'application lit-elle les données de l'appareil plutôt que le serveur ? */
 export function isDemoMode() {
-  return demoMode;
+  return reseau.estLocal();
 }
 
 async function request(path, options = {}) {
@@ -27,12 +35,25 @@ async function request(path, options = {}) {
 class ApiError extends Error {}
 
 async function withFallback(backendCall, demoCall) {
-  if (demoMode) return demoCall();
+  // En local, on ne retente pas à chaque appel : sur un réseau 2G chaque essai
+  // coûte les cinq secondes du délai d'attente. On retente quand l'attente est
+  // écoulée — ou tout de suite si le système a annoncé le retour du réseau.
+  if (!reseau.tenterLeBackend()) return demoCall();
+
   try {
-    return await backendCall();
+    const resultat = await backendCall();
+    reseau.backendJoignable();
+    return resultat;
   } catch (err) {
-    if (err instanceof ApiError) throw err; // backend joignable : vraie erreur métier
-    demoMode = true; // réseau KO : bascule en démo navigateur
+    if (err instanceof ApiError) {
+      // Le backend a répondu, et il a répondu une erreur métier. Il est donc
+      // joignable : c'est une information sur le réseau, pas seulement sur la
+      // requête. Ne pas la prendre en compte laissait l'application en local
+      // alors que le serveur allait bien.
+      reseau.backendJoignable();
+      throw err;
+    }
+    reseau.reseauEchoue();
     return demoCall();
   }
 }
